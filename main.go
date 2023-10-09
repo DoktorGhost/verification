@@ -1,9 +1,12 @@
 package main
 
 import (
+	"fmt"
+	"log"
 	"net/http"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -11,12 +14,10 @@ import (
 var ArrowWords = []string{"java", "python", "ruby"}
 
 func CreateComment(c *gin.Context) (string, string) {
-	// Извлекаем уникальный идентификатор из HTTP-заголовка
-	uniqueID := c.GetHeader("X-Unique-ID")
-
 	// Извлекаем текст комментария из тела запроса
 	var request struct {
 		CommentText string `json:"commentText"`
+		UniqueID    string `json:"uniqueID"`
 	}
 	if err := c.BindJSON(&request); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
@@ -25,18 +26,19 @@ func CreateComment(c *gin.Context) (string, string) {
 
 	// Приводим весь текст комментария к нижнему регистру
 	commentText := strings.ToLower(request.CommentText)
+	uniqueID := request.UniqueID
 
 	return uniqueID, commentText
-
 }
 
-// Псевдокод для проверки комментария
+// код для проверки комментария
 func verifyComment(commentText string, arrowWords []string) bool {
-	// Создаем регулярное выражение, объединяя запрещенные слова через вертикальную черту |
+	// Создаем регулярное выражение
 	re := regexp.MustCompile(strings.Join(arrowWords, "|"))
 
 	// Ищем все вхождения запрещенных слов в тексте комментария
 	matches := re.FindAllString(commentText, -1)
+	fmt.Println(matches)
 
 	// Если найдены совпадения (запрещенные слова), возвращаем false
 	if len(matches) > 0 {
@@ -50,15 +52,16 @@ func verifyComment(commentText string, arrowWords []string) bool {
 func answer(c *gin.Context, uniqueID string, verified bool) {
 	if verified {
 		// Если комментарий прошел проверку, отправляем статус 200 и uniqueID
-		c.JSON(http.StatusOK, gin.H{"uniqueID": uniqueID, "message": "Comment verified"})
+		c.JSON(http.StatusOK, gin.H{"uniqueID": uniqueID, "message": "Comment verified", "error": ""})
+		log.Printf("Timestamp: %s, Request ID: %s, IP: %s, HTTP Code: %d", time.Now().Format("2006-01-02 15:04:05"), uniqueID, c.ClientIP(), http.StatusOK)
 	} else {
 		// Если комментарий не прошел проверку, отправляем статус 400 и uniqueID
 		c.JSON(http.StatusBadRequest, gin.H{"uniqueID": uniqueID, "error": "Comment verification failed"})
+		log.Printf("Timestamp: %s, Request ID: %s, IP: %s, HTTP Code: %d", time.Now().Format("2006-01-02 15:04:05"), uniqueID, c.ClientIP(), http.StatusBadRequest)
 	}
 }
 
 func main() {
-
 	router := gin.Default()
 
 	// Маршрут для обработки POST-запросов
